@@ -14,7 +14,9 @@
 package remote
 
 import (
+	"context"
 	"fmt"
+	"github.com/opentracing/opentracing-go"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -126,14 +128,15 @@ func FromQuery(req *prompb.Query) (int64, int64, []*labels.Matcher, *storage.Sel
 }
 
 // ToQueryResult builds a QueryResult proto.
-func ToQueryResult(ss storage.SeriesSet, sampleLimit int) (*prompb.QueryResult, error) {
+func ToQueryResult(ctx context.Context, ss storage.SeriesSet, sampleLimit int) (*prompb.QueryResult, error) {
 	numSamples := 0
+	numSS := 0
 	resp := &prompb.QueryResult{}
 	for ss.Next() {
+		numSS++
 		series := ss.At()
 		iter := series.Iterator()
 		samples := []prompb.Sample{}
-
 		for iter.Next() {
 			numSamples++
 			if sampleLimit > 0 && numSamples > sampleLimit {
@@ -151,12 +154,14 @@ func ToQueryResult(ss storage.SeriesSet, sampleLimit int) (*prompb.QueryResult, 
 		if err := iter.Err(); err != nil {
 			return nil, err
 		}
-
 		resp.Timeseries = append(resp.Timeseries, &prompb.TimeSeries{
 			Labels:  labelsToLabelsProto(series.Labels()),
 			Samples: samples,
 		})
 	}
+	span := opentracing.SpanFromContext(ctx)
+	span.SetTag("num_samples", numSamples)
+	span.SetTag("num_ss", numSS)
 	if err := ss.Err(); err != nil {
 		return nil, err
 	}

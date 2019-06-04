@@ -17,6 +17,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/opentracing/opentracing-go"
+
+	//"github.com/uber/jaeger-client-go"
 	"io"
 	"io/ioutil"
 	stdlog "log"
@@ -41,7 +44,7 @@ import (
 	"github.com/go-kit/kit/log/level"
 	conntrack "github.com/mwitkow/go-conntrack"
 	"github.com/opentracing-contrib/go-stdlib/nethttp"
-	opentracing "github.com/opentracing/opentracing-go"
+	//opentracing "github.com/opentracing/opentracing-go"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -66,6 +69,13 @@ import (
 	api_v1 "github.com/prometheus/prometheus/web/api/v1"
 	api_v2 "github.com/prometheus/prometheus/web/api/v2"
 	"github.com/prometheus/prometheus/web/ui"
+
+	//jaeger "github.com/uber/jaeger-client-go"
+	jaeger_config "github.com/uber/jaeger-client-go/config"
+	//jaeger_prometheus "github.com/uber/jaeger-lib/metrics/prometheus"
+	//jaeger "github.com/uber/jaeger-client-go"
+	//jaeger_config "github.com/uber/jaeger-client-go/config"
+	//jaeger_prometheus "github.com/uber/jaeger-lib/metrics/prometheus"
 )
 
 var localhostRepresentations = []string{"127.0.0.1", "localhost"}
@@ -472,8 +482,16 @@ func (h *Handler) Run(ctx context.Context) error {
 
 	errlog := stdlog.New(log.NewStdlibAdapter(level.Error(h.logger)), "", 0)
 
+	cfg, _ := jaeger_config.FromEnv()
+	tracer, _, err := cfg.NewTracer()
+	opentracing.SetGlobalTracer(tracer)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, errors.Wrapf(err, "tracing failed"))
+		os.Exit(1)
+	}
+
 	httpSrv := &http.Server{
-		Handler:     withStackTracer(nethttp.Middleware(opentracing.GlobalTracer(), mux, operationName), h.logger),
+		Handler:     withStackTracer(nethttp.Middleware(tracer, mux, operationName), h.logger),
 		ErrorLog:    errlog,
 		ReadTimeout: h.options.ReadTimeout,
 	}

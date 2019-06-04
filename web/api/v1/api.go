@@ -16,6 +16,7 @@ package v1
 import (
 	"context"
 	"fmt"
+	"github.com/uber/jaeger-client-go"
 	"math"
 	"math/rand"
 	"net/http"
@@ -50,6 +51,9 @@ import (
 	"github.com/prometheus/prometheus/storage/remote"
 	"github.com/prometheus/prometheus/util/httputil"
 	"github.com/prometheus/prometheus/util/stats"
+
+	"github.com/opentracing/opentracing-go"
+	//jaeger "github.com/uber/jaeger-client-go"
 )
 
 const (
@@ -201,6 +205,11 @@ func NewAPI(
 func (api *API) Register(r *route.Router) {
 	wrap := func(f apiFunc) http.HandlerFunc {
 		hf := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			span := opentracing.SpanFromContext(r.Context())
+			if c, ok := span.Context().(jaeger.SpanContext); ok {
+				w.Header().Set("X-Prometheus-Trace-Id", fmt.Sprintf("%016x", c.TraceID().Low))
+			}
+
 			httputil.SetCORS(w, api.CORSOrigin, r)
 			result := f(r)
 			if result.err != nil {
@@ -213,10 +222,9 @@ func (api *API) Register(r *route.Router) {
 			if result.finalizer != nil {
 				result.finalizer()
 			}
+
 		})
-		return api.ready(httputil.CompressionHandler{
-			Handler: hf,
-		}.ServeHTTP)
+		return api.ready(hf.ServeHTTP)
 	}
 
 	r.Options("/*path", wrap(api.options))
@@ -368,7 +376,14 @@ func (api *API) queryRange(r *http.Request) apiFuncResult {
 		return apiFuncResult{nil, &apiError{errorBadData, err}, nil, nil}
 	}
 
+	span, _ := opentracing.StartSpanFromContext(r.Context(), "qry_exec")
 	res := qry.Exec(ctx)
+	span.Finish()
+
+	if c, ok := span.Context().(jaeger.SpanContext); ok {
+		fmt.Printf("%016x", c.TraceID().Low)
+	}
+
 	if res.Err != nil {
 		return apiFuncResult{nil, returnAPIError(res.Err), res.Warnings, qry.Close}
 	}
@@ -838,32 +853,47 @@ func (api *API) serveFlags(r *http.Request) apiFuncResult {
 }
 
 func (api *API) remoteRead(w http.ResponseWriter, r *http.Request) {
+	fmt.Println(r.Header)
+	span, _ := opentracing.StartSpanFromContext(r.Context(), "remote_read_gate_start")
 	if err := api.remoteReadGate.Start(r.Context()); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	span.Finish()
 	remoteReadQueries.Inc()
 
 	defer api.remoteReadGate.Done()
 	defer remoteReadQueries.Dec()
 
+	span, _ = opentracing.StartSpanFromContext(r.Context(), "decode_request")
 	req, err := remote.DecodeReadRequest(r)
+	span.Finish()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
+	span, _ = opentracing.StartSpanFromContext(r.Context(), "prompb_read_response")
+
+	span.SetTag("query", req.String())
 	resp := prompb.ReadResponse{
 		Results: make([]*prompb.QueryResult, len(req.Queries)),
 	}
+	span.Finish()
 	for i, query := range req.Queries {
+		span, _ = opentracing.StartSpanFromContext(r.Context(), "remote_from_query")
+		span.SetTag("i", i)
+		span.SetTag("query", query.String())
 		from, through, matchers, selectParams, err := remote.FromQuery(query)
+		span.Finish()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
+		span, _ = opentracing.StartSpanFromContext(r.Context(), "querier")
 		querier, err := api.Queryable.Querier(r.Context(), from, through)
+		span.Finish()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -873,6 +903,7 @@ func (api *API) remoteRead(w http.ResponseWriter, r *http.Request) {
 		// Change equality matchers which match external labels
 		// to a matcher that looks for an empty label,
 		// as that label should not be present in the storage.
+		span, _ = opentracing.StartSpanFromContext(r.Context(), "remote_extarnal_labels")
 		externalLabels := api.config().GlobalConfig.ExternalLabels.Map()
 		filteredMatchers := make([]*labels.Matcher, 0, len(matchers))
 		for _, m := range matchers {
@@ -888,13 +919,17 @@ func (api *API) remoteRead(w http.ResponseWriter, r *http.Request) {
 				filteredMatchers = append(filteredMatchers, m)
 			}
 		}
-
+		span.Finish()
+		span, _ = opentracing.StartSpanFromContext(r.Context(), "querier_select")
 		set, _, err := querier.Select(selectParams, filteredMatchers...)
+		span.Finish()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		resp.Results[i], err = remote.ToQueryResult(set, api.remoteReadSampleLimit)
+		span, ctx := opentracing.StartSpanFromContext(r.Context(), "remote_to_query_result")
+		resp.Results[i], err = remote.ToQueryResult(ctx, set, api.remoteReadSampleLimit)
+		span.Finish()
 		if err != nil {
 			if httpErr, ok := err.(remote.HTTPError); ok {
 				http.Error(w, httpErr.Error(), httpErr.Status())
@@ -905,6 +940,7 @@ func (api *API) remoteRead(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Add external labels back in, in sorted order.
+		span, _ = opentracing.StartSpanFromContext(r.Context(), "add_external_label")
 		sortedExternalLabels := make([]prompb.Label, 0, len(externalLabels))
 		for name, value := range externalLabels {
 			sortedExternalLabels = append(sortedExternalLabels, prompb.Label{
@@ -915,16 +951,20 @@ func (api *API) remoteRead(w http.ResponseWriter, r *http.Request) {
 		sort.Slice(sortedExternalLabels, func(i, j int) bool {
 			return sortedExternalLabels[i].Name < sortedExternalLabels[j].Name
 		})
+		span.Finish()
 
 		for _, ts := range resp.Results[i].Timeseries {
 			ts.Labels = mergeLabels(ts.Labels, sortedExternalLabels)
 		}
 	}
 
+	span, _ = opentracing.StartSpanFromContext(r.Context(), "encode_response")
 	if err := remote.EncodeReadResponse(&resp, w); err != nil {
+		span.Finish()
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	span.Finish()
 }
 
 func (api *API) deleteSeries(r *http.Request) apiFuncResult {
