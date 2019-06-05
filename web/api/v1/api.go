@@ -853,7 +853,6 @@ func (api *API) serveFlags(r *http.Request) apiFuncResult {
 }
 
 func (api *API) remoteRead(w http.ResponseWriter, r *http.Request) {
-	fmt.Println(r.Header)
 	span, _ := opentracing.StartSpanFromContext(r.Context(), "remote_read_gate_start")
 	if err := api.remoteReadGate.Start(r.Context()); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
