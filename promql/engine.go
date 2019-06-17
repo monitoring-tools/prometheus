@@ -420,6 +420,8 @@ func (ng *Engine) execEvalStmt(ctx context.Context, query *query, s *EvalStmt) (
 	}
 
 	evalSpanTimer, ctxInnerEval := query.stats.GetSpanTimer(ctx, stats.InnerEvalTime, ng.metrics.queryInnerEval)
+
+
 	// Instant evaluation. This is executed as a range evaluation with one step.
 	if s.Start == s.End && s.Interval == 0 {
 		start := timeMilliseconds(s.Start)
@@ -902,6 +904,8 @@ func (ev *evaluator) evalSubquery(subq *SubqueryExpr) *MatrixSelector {
 
 // eval evaluates the given expression as the given AST expression node requires.
 func (ev *evaluator) eval(expr Expr) Value {
+	span, _:= opentracing.StartSpanFromContext(ev.ctx, "eval")
+	defer span.Finish()
 	// This is the top-level evaluation method.
 	// Thus, we check for timeout/cancellation here.
 	if err := contextDone(ev.ctx, "expression evaluation"); err != nil {
@@ -909,8 +913,11 @@ func (ev *evaluator) eval(expr Expr) Value {
 	}
 	numSteps := int((ev.endTimestamp-ev.startTimestamp)/ev.interval) + 1
 
+	span.SetTag("numSteps", numSteps)
+
 	switch e := expr.(type) {
 	case *AggregateExpr:
+		span.SetTag("type", "*AggregateExpr")
 		if s, ok := e.Param.(*StringLiteral); ok {
 			return ev.rangeEval(func(v []Value, enh *EvalNodeHelper) Vector {
 				return ev.aggregation(e.Op, e.Grouping, e.Without, s.Val, v[0].(Vector), enh)
@@ -925,6 +932,7 @@ func (ev *evaluator) eval(expr Expr) Value {
 		}, e.Param, e.Expr)
 
 	case *Call:
+		span.SetTag("type", "*Call")
 		if e.Func.Name == "timestamp" {
 			// Matrix evaluation always returns the evaluation time,
 			// so this function needs special handling when given
@@ -1046,9 +1054,11 @@ func (ev *evaluator) eval(expr Expr) Value {
 		return mat
 
 	case *ParenExpr:
+		span.SetTag("type", "*ParenExpr")
 		return ev.eval(e.Expr)
 
 	case *UnaryExpr:
+		span.SetTag("type", "*UnaryExpr")
 		mat := ev.eval(e.Expr).(Matrix)
 		if e.Op == ItemSUB {
 			for i := range mat {
@@ -1064,6 +1074,7 @@ func (ev *evaluator) eval(expr Expr) Value {
 		return mat
 
 	case *BinaryExpr:
+		span.SetTag("type", "*BinaryExpr")
 		switch lt, rt := e.LHS.Type(), e.RHS.Type(); {
 		case lt == ValueTypeScalar && rt == ValueTypeScalar:
 			return ev.rangeEval(func(v []Value, enh *EvalNodeHelper) Vector {
@@ -1102,11 +1113,13 @@ func (ev *evaluator) eval(expr Expr) Value {
 		}
 
 	case *NumberLiteral:
+		span.SetTag("type", "*NumberLiteral")
 		return ev.rangeEval(func(v []Value, enh *EvalNodeHelper) Vector {
 			return append(enh.out, Sample{Point: Point{V: e.Val}})
 		})
 
 	case *VectorSelector:
+		span.SetTag("type", "*VectorSelector")
 		checkForSeriesSetExpansion(ev.ctx, e)
 		mat := make(Matrix, 0, len(e.series))
 		it := storage.NewBuffer(durationMilliseconds(LookbackDelta))
@@ -1137,12 +1150,14 @@ func (ev *evaluator) eval(expr Expr) Value {
 		return mat
 
 	case *MatrixSelector:
+		span.SetTag("type", "*MatrixSelector")
 		if ev.startTimestamp != ev.endTimestamp {
 			panic(errors.New("cannot do range evaluation of matrix selector"))
 		}
 		return ev.matrixSelector(e)
 
 	case *SubqueryExpr:
+		span.SetTag("type", "*SubqueryExpr")
 		offsetMillis := durationToInt64Millis(e.Offset)
 		rangeMillis := durationToInt64Millis(e.Range)
 		newEv := &evaluator{
