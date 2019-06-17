@@ -14,8 +14,8 @@
 include Makefile.common
 
 STATICCHECK_IGNORE = \
-  github.com/prometheus/prometheus/pkg/textparse/promlex.l.go:SA4006 \
-  github.com/prometheus/prometheus/pkg/textparse/openmetricslex.l.go:SA4006
+  github.com/monitoring-tools/prometheus/pkg/textparse/promlex.l.go:SA4006 \
+  github.com/monitoring-tools/prometheus/pkg/textparse/openmetricslex.l.go:SA4006
 
 DOCKER_IMAGE_NAME       ?= prometheus
 

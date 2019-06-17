@@ -16,7 +16,7 @@ package stats
 import (
 	"encoding/json"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/prometheus/util/testutil"
+	"github.com/monitoring-tools/prometheus/util/testutil"
 	"regexp"
 	"testing"
 	"time"

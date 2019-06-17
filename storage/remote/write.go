@@ -16,8 +16,8 @@ package remote
 import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/prometheus/prometheus/pkg/labels"
-	"github.com/prometheus/prometheus/storage"
+	"github.com/monitoring-tools/prometheus/pkg/labels"
+	"github.com/monitoring-tools/prometheus/storage"
 )
 
 var (

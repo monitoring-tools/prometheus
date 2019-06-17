@@ -26,8 +26,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/prometheus/prometheus/pkg/labels"
-	"github.com/prometheus/prometheus/pkg/value"
+	"github.com/monitoring-tools/prometheus/pkg/labels"
+	"github.com/monitoring-tools/prometheus/pkg/value"
 )
 
 type openMetricsLexer struct {

@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"github.com/prometheus/common/model"
-	"github.com/prometheus/prometheus/util/testutil"
+	"github.com/monitoring-tools/prometheus/util/testutil"
 )
 
 type OpenstackSDInstanceTestSuite struct {

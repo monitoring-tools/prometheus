@@ -27,10 +27,10 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/pkg/errors"
 
-	"github.com/prometheus/prometheus/config"
-	"github.com/prometheus/prometheus/discovery/targetgroup"
-	"github.com/prometheus/prometheus/pkg/labels"
-	"github.com/prometheus/prometheus/storage"
+	"github.com/monitoring-tools/prometheus/config"
+	"github.com/monitoring-tools/prometheus/discovery/targetgroup"
+	"github.com/monitoring-tools/prometheus/pkg/labels"
+	"github.com/monitoring-tools/prometheus/storage"
 )
 
 // Appendable returns an Appender.

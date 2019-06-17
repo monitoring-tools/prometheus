@@ -32,7 +32,7 @@ import (
 	"github.com/prometheus/tsdb/fileutil"
 	"github.com/prometheus/tsdb/wal"
 
-	"github.com/prometheus/prometheus/pkg/timestamp"
+	"github.com/monitoring-tools/prometheus/pkg/timestamp"
 )
 
 const (

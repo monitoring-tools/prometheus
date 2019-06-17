@@ -40,17 +40,17 @@ import (
 	"github.com/prometheus/common/route"
 	tsdbLabels "github.com/prometheus/tsdb/labels"
 
-	"github.com/prometheus/prometheus/config"
-	"github.com/prometheus/prometheus/pkg/gate"
-	"github.com/prometheus/prometheus/pkg/labels"
-	"github.com/prometheus/prometheus/pkg/timestamp"
-	"github.com/prometheus/prometheus/prompb"
-	"github.com/prometheus/prometheus/promql"
-	"github.com/prometheus/prometheus/rules"
-	"github.com/prometheus/prometheus/scrape"
-	"github.com/prometheus/prometheus/storage"
-	"github.com/prometheus/prometheus/storage/remote"
-	"github.com/prometheus/prometheus/util/testutil"
+	"github.com/monitoring-tools/prometheus/config"
+	"github.com/monitoring-tools/prometheus/pkg/gate"
+	"github.com/monitoring-tools/prometheus/pkg/labels"
+	"github.com/monitoring-tools/prometheus/pkg/timestamp"
+	"github.com/monitoring-tools/prometheus/prompb"
+	"github.com/monitoring-tools/prometheus/promql"
+	"github.com/monitoring-tools/prometheus/rules"
+	"github.com/monitoring-tools/prometheus/scrape"
+	"github.com/monitoring-tools/prometheus/storage"
+	"github.com/monitoring-tools/prometheus/storage/remote"
+	"github.com/monitoring-tools/prometheus/util/testutil"
 )
 
 type testTargetRetriever struct{}

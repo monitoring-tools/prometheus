@@ -28,9 +28,9 @@ import (
 	compute "google.golang.org/api/compute/v1"
 	"google.golang.org/api/option"
 
-	"github.com/prometheus/prometheus/discovery/refresh"
-	"github.com/prometheus/prometheus/discovery/targetgroup"
-	"github.com/prometheus/prometheus/util/strutil"
+	"github.com/monitoring-tools/prometheus/discovery/refresh"
+	"github.com/monitoring-tools/prometheus/discovery/targetgroup"
+	"github.com/monitoring-tools/prometheus/util/strutil"
 )
 
 const (

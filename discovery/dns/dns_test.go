@@ -25,7 +25,7 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/require"
 
-	"github.com/prometheus/prometheus/discovery/targetgroup"
+	"github.com/monitoring-tools/prometheus/discovery/targetgroup"
 )
 
 func TestDNS(t *testing.T) {

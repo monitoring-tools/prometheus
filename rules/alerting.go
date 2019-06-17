@@ -29,12 +29,12 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
 
-	"github.com/prometheus/prometheus/pkg/labels"
-	"github.com/prometheus/prometheus/pkg/rulefmt"
-	"github.com/prometheus/prometheus/pkg/timestamp"
-	"github.com/prometheus/prometheus/promql"
-	"github.com/prometheus/prometheus/template"
-	"github.com/prometheus/prometheus/util/strutil"
+	"github.com/monitoring-tools/prometheus/pkg/labels"
+	"github.com/monitoring-tools/prometheus/pkg/rulefmt"
+	"github.com/monitoring-tools/prometheus/pkg/timestamp"
+	"github.com/monitoring-tools/prometheus/promql"
+	"github.com/monitoring-tools/prometheus/template"
+	"github.com/monitoring-tools/prometheus/util/strutil"
 )
 
 const (

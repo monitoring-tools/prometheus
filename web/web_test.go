@@ -25,12 +25,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/prometheus/prometheus/config"
-	"github.com/prometheus/prometheus/notifier"
-	"github.com/prometheus/prometheus/rules"
-	"github.com/prometheus/prometheus/scrape"
-	"github.com/prometheus/prometheus/storage/tsdb"
-	"github.com/prometheus/prometheus/util/testutil"
+	"github.com/monitoring-tools/prometheus/config"
+	"github.com/monitoring-tools/prometheus/notifier"
+	"github.com/monitoring-tools/prometheus/rules"
+	"github.com/monitoring-tools/prometheus/scrape"
+	"github.com/monitoring-tools/prometheus/storage/tsdb"
+	"github.com/monitoring-tools/prometheus/util/testutil"
 	libtsdb "github.com/prometheus/tsdb"
 )
 

@@ -26,8 +26,8 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/common/model"
-	"github.com/prometheus/prometheus/discovery"
-	"github.com/prometheus/prometheus/discovery/targetgroup"
+	"github.com/monitoring-tools/prometheus/discovery"
+	"github.com/monitoring-tools/prometheus/discovery/targetgroup"
 )
 
 type customSD struct {

@@ -16,7 +16,7 @@ Release cadence of first pre-releases being cut is 6 weeks.
 | v2.9           | 2019-04-10                                 | Brian Brazil (GitHub: @brian-brazil)        |
 | v2.10          | 2019-05-22                                 | **searching for volunteer**                 |
 
-If you are interested in volunteering please create a pull request against the [prometheus/prometheus](https://github.com/prometheus/prometheus) repository and propose yourself for the release series of your choice.
+If you are interested in volunteering please create a pull request against the [prometheus/prometheus](https://github.com/monitoring-tools/prometheus) repository and propose yourself for the release series of your choice.
 
 ## Release shepherd responsibilities
 
@@ -31,7 +31,7 @@ See the next section for details on cutting an individual release.
 
 ## How to cut an individual release
 
-These instructions are currently valid for the Prometheus server, i.e. the [prometheus/prometheus repository](https://github.com/prometheus/prometheus). Applicability to other Prometheus repositories depends on the current state of each repository. We aspire to unify the release procedures as much as possible.
+These instructions are currently valid for the Prometheus server, i.e. the [prometheus/prometheus repository](https://github.com/monitoring-tools/prometheus). Applicability to other Prometheus repositories depends on the current state of each repository. We aspire to unify the release procedures as much as possible.
 
 ### Branch management and versioning strategy
 

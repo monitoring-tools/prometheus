@@ -34,15 +34,15 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/require"
 
-	"github.com/prometheus/prometheus/config"
-	"github.com/prometheus/prometheus/discovery/targetgroup"
-	"github.com/prometheus/prometheus/pkg/labels"
-	"github.com/prometheus/prometheus/pkg/relabel"
-	"github.com/prometheus/prometheus/pkg/textparse"
-	"github.com/prometheus/prometheus/pkg/timestamp"
-	"github.com/prometheus/prometheus/pkg/value"
-	"github.com/prometheus/prometheus/storage"
-	"github.com/prometheus/prometheus/util/testutil"
+	"github.com/monitoring-tools/prometheus/config"
+	"github.com/monitoring-tools/prometheus/discovery/targetgroup"
+	"github.com/monitoring-tools/prometheus/pkg/labels"
+	"github.com/monitoring-tools/prometheus/pkg/relabel"
+	"github.com/monitoring-tools/prometheus/pkg/textparse"
+	"github.com/monitoring-tools/prometheus/pkg/timestamp"
+	"github.com/monitoring-tools/prometheus/pkg/value"
+	"github.com/monitoring-tools/prometheus/storage"
+	"github.com/monitoring-tools/prometheus/util/testutil"
 )
 
 func TestNewScrapePool(t *testing.T) {
