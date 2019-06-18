@@ -626,8 +626,11 @@ func extractFuncFromPath(p []Node) string {
 }
 
 func checkForSeriesSetExpansion(ctx context.Context, expr Expr) {
+	sp, _:= opentracing.StartSpanFromContext(ctx, "checkForSeriesSetExpansion")
+	defer sp.Finish()
 	switch e := expr.(type) {
 	case *MatrixSelector:
+		sp.SetTag("type", "MatrixSelector")
 		if e.series == nil {
 			series, err := expandSeriesSet(ctx, e.unexpandedSeriesSet)
 			if err != nil {
@@ -637,6 +640,7 @@ func checkForSeriesSetExpansion(ctx context.Context, expr Expr) {
 			}
 		}
 	case *VectorSelector:
+		sp.SetTag("type", "VectorSelector")
 		if e.series == nil {
 			series, err := expandSeriesSet(ctx, e.unexpandedSeriesSet)
 			if err != nil {
@@ -1142,6 +1146,9 @@ func (ev *evaluator) eval(expr Expr) Value {
 		checkForSeriesSetExpansion(ev.ctx, e)
 		mat := make(Matrix, 0, len(e.series))
 		it := storage.NewBuffer(durationMilliseconds(LookbackDelta))
+		sp, _ := opentracing.StartSpanFromContext(ev.ctx, "for_series")
+		defer sp.Finish()
+		sp.SetTag("len", len(e.series))
 		for i, s := range e.series {
 			it.Reset(s.Iterator())
 			ss := Series{
@@ -1166,6 +1173,7 @@ func (ev *evaluator) eval(expr Expr) Value {
 			}
 
 		}
+		sp.SetTag("mat_len", len(mat))
 		return mat
 
 	case *MatrixSelector:
