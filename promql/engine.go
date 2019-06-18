@@ -28,7 +28,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/model"
@@ -770,11 +770,16 @@ func (enh *EvalNodeHelper) signatureFunc(on bool, names ...string) func(labels.L
 // step.  The return value is the combination into time series of all the
 // function call results.
 func (ev *evaluator) rangeEval(f func([]Value, *EvalNodeHelper) Vector, exprs ...Expr) Matrix {
+	span, ctx := opentracing.StartSpanFromContext(ev.ctx, "range_eval")
+	defer span.Finish()
 	numSteps := int((ev.endTimestamp-ev.startTimestamp)/ev.interval) + 1
+	span.SetTag("numSteps", numSteps)
 	matrixes := make([]Matrix, len(exprs))
 	origMatrixes := make([]Matrix, len(exprs))
 	originalNumSamples := ev.currentSamples
 
+	sp, _ := opentracing.StartSpanFromContext(ctx, "eval_exprs")
+	sp.SetTag("len", len(exprs))
 	for i, e := range exprs {
 		// Functions will take string arguments from the expressions, not the values.
 		if e != nil && e.Type() != ValueTypeString {
@@ -787,6 +792,7 @@ func (ev *evaluator) rangeEval(f func([]Value, *EvalNodeHelper) Vector, exprs ..
 			copy(origMatrixes[i], matrixes[i])
 		}
 	}
+	sp.Finish()
 
 	vectors := make([]Vector, len(exprs)) // Input vectors for the function.
 	args := make([]Value, len(exprs))     // Argument to function.
@@ -802,6 +808,8 @@ func (ev *evaluator) rangeEval(f func([]Value, *EvalNodeHelper) Vector, exprs ..
 	enh := &EvalNodeHelper{out: make(Vector, 0, biggestLen)}
 	seriess := make(map[uint64]Series, biggestLen) // Output series by series hash.
 	tempNumSamples := ev.currentSamples
+
+	sp, _ = opentracing.StartSpanFromContext(ctx, "expression_evaluation")
 	for ts := ev.startTimestamp; ts <= ev.endTimestamp; ts += ev.interval {
 		if err := contextDone(ev.ctx, "expression evaluation"); err != nil {
 			ev.error(err)
@@ -873,19 +881,28 @@ func (ev *evaluator) rangeEval(f func([]Value, *EvalNodeHelper) Vector, exprs ..
 
 		}
 	}
+	sp.SetTag("seriess_len", len(seriess))
+	sp.Finish()
 
+	sp, _ = opentracing.StartSpanFromContext(ctx, "reuse_origin")
 	// Reuse the original point slices.
 	for _, m := range origMatrixes {
 		for _, s := range m {
 			putPointSlice(s.Points)
 		}
 	}
+	sp.Finish()
+
+	sp, _ = opentracing.StartSpanFromContext(ctx, "asseble_out_matrix")
 	// Assemble the output matrix. By the time we get here we know we don't have too many samples.
 	mat := make(Matrix, 0, len(seriess))
 	for _, ss := range seriess {
 		mat = append(mat, ss)
 	}
 	ev.currentSamples = originalNumSamples + mat.TotalSamples()
+	span.SetTag("currentSamples", ev.currentSamples)
+	span.SetTag("originalNumSamples", originalNumSamples)
+	span.SetTag("TotalSamples", mat.TotalSamples())
 	return mat
 }
 
