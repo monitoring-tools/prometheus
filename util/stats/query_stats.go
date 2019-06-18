@@ -144,6 +144,10 @@ func (s *SpanTimer) Finish() {
 	}
 }
 
+func (s *SpanTimer) GetSpan() opentracing.Span {
+	return s.span
+}
+
 type QueryTimers struct {
 	*TimerGroup
 }
