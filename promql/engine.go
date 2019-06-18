@@ -625,8 +625,11 @@ func extractFuncFromPath(p []Node) string {
 	return extractFuncFromPath(p[:len(p)-1])
 }
 
-func checkForSeriesSetExpansion(ctx context.Context, expr Expr) {
-	sp, _:= opentracing.StartSpanFromContext(ctx, "checkForSeriesSetExpansion")
+func checkForSeriesSetExpansion(ctx context.Context, expr Expr, parentCtx context.Context) {
+	if parentCtx == nil {
+		parentCtx = ctx
+	}
+	sp, _:= opentracing.StartSpanFromContext(parentCtx, "checkForSeriesSetExpansion")
 	defer sp.Finish()
 	switch e := expr.(type) {
 	case *MatrixSelector:
@@ -782,13 +785,13 @@ func (ev *evaluator) rangeEval(f func([]Value, *EvalNodeHelper) Vector, exprs ..
 	origMatrixes := make([]Matrix, len(exprs))
 	originalNumSamples := ev.currentSamples
 
-	sp, _ := opentracing.StartSpanFromContext(ctx, "eval_exprs")
+	sp, ctx := opentracing.StartSpanFromContext(ctx, "eval_exprs")
 	sp.SetTag("len", len(exprs))
 	for i, e := range exprs {
 		// Functions will take string arguments from the expressions, not the values.
 		if e != nil && e.Type() != ValueTypeString {
 			// ev.currentSamples will be updated to the correct value within the ev.eval call.
-			matrixes[i] = ev.eval(e).(Matrix)
+			matrixes[i] = ev.eval(e, ctx).(Matrix)
 
 			// Keep a copy of the original point slices so that they
 			// can be returned to the pool.
@@ -926,8 +929,12 @@ func (ev *evaluator) evalSubquery(subq *SubqueryExpr) *MatrixSelector {
 }
 
 // eval evaluates the given expression as the given AST expression node requires.
-func (ev *evaluator) eval(expr Expr) Value {
-	span, _:= opentracing.StartSpanFromContext(ev.ctx, "eval")
+func (ev *evaluator) eval(expr Expr, spanContext... context.Context) Value {
+	ctx := ev.ctx
+	if len(spanContext) > 0 {
+		ctx = spanContext[0]
+	}
+	span, ctx:= opentracing.StartSpanFromContext(ctx, "eval")
 	defer span.Finish()
 	// This is the top-level evaluation method.
 	// Thus, we check for timeout/cancellation here.
@@ -1006,7 +1013,7 @@ func (ev *evaluator) eval(expr Expr) Value {
 		}
 
 		sel := e.Args[matrixArgIndex].(*MatrixSelector)
-		checkForSeriesSetExpansion(ev.ctx, sel)
+		checkForSeriesSetExpansion(ev.ctx, sel, nil)
 		mat := make(Matrix, 0, len(sel.series)) // Output matrix.
 		offset := durationMilliseconds(sel.Offset)
 		selRange := durationMilliseconds(sel.Range)
@@ -1143,10 +1150,10 @@ func (ev *evaluator) eval(expr Expr) Value {
 
 	case *VectorSelector:
 		span.SetTag("type", "*VectorSelector")
-		checkForSeriesSetExpansion(ev.ctx, e)
+		checkForSeriesSetExpansion(ev.ctx, e, ctx)
 		mat := make(Matrix, 0, len(e.series))
 		it := storage.NewBuffer(durationMilliseconds(LookbackDelta))
-		sp, _ := opentracing.StartSpanFromContext(ev.ctx, "for_series")
+		sp, _ := opentracing.StartSpanFromContext(ctx, "for_series")
 		defer sp.Finish()
 		sp.SetTag("len", len(e.series))
 		for i, s := range e.series {
@@ -1222,7 +1229,7 @@ func durationToInt64Millis(d time.Duration) int64 {
 
 // vectorSelector evaluates a *VectorSelector expression.
 func (ev *evaluator) vectorSelector(node *VectorSelector, ts int64) Vector {
-	checkForSeriesSetExpansion(ev.ctx, node)
+	checkForSeriesSetExpansion(ev.ctx, node, nil)
 
 	var (
 		vec = make(Vector, 0, len(node.series))
@@ -1294,7 +1301,7 @@ func putPointSlice(p []Point) {
 
 // matrixSelector evaluates a *MatrixSelector expression.
 func (ev *evaluator) matrixSelector(node *MatrixSelector) Matrix {
-	checkForSeriesSetExpansion(ev.ctx, node)
+	checkForSeriesSetExpansion(ev.ctx, node, nil)
 
 	var (
 		offset = durationMilliseconds(node.Offset)
