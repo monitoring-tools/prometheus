@@ -956,7 +956,7 @@ func (ev *evaluator) eval(expr Expr, spanContext... context.Context) Value {
 				return ev.aggregation(e.Op, e.Grouping, e.Without, s.Val, v[0].(Vector), enh)
 			}, e.Expr)
 		}
-		return ev.rangeEval(nil, func(v []Value, enh *EvalNodeHelper) Vector {
+		return ev.rangeEval(ctx, func(v []Value, enh *EvalNodeHelper) Vector {
 			var param float64
 			if e.Param != nil {
 				param = v[0].(Vector)[0].V
@@ -972,7 +972,7 @@ func (ev *evaluator) eval(expr Expr, spanContext... context.Context) Value {
 			// a vector selector.
 			vs, ok := e.Args[0].(*VectorSelector)
 			if ok {
-				return ev.rangeEval(nil, func(v []Value, enh *EvalNodeHelper) Vector {
+				return ev.rangeEval(ctx, func(v []Value, enh *EvalNodeHelper) Vector {
 					return e.Func.Call([]Value{ev.vectorSelector(vs, enh.ts)}, e.Args, enh)
 				})
 			}
@@ -998,7 +998,7 @@ func (ev *evaluator) eval(expr Expr, spanContext... context.Context) Value {
 		}
 		if !matrixArg {
 			// Does not have a matrix argument.
-			return ev.rangeEval(nil, func(v []Value, enh *EvalNodeHelper) Vector {
+			return ev.rangeEval(ctx, func(v []Value, enh *EvalNodeHelper) Vector {
 				return e.Func.Call(v, e.Args, enh)
 			}, e.Args...)
 		}
@@ -1009,7 +1009,7 @@ func (ev *evaluator) eval(expr Expr, spanContext... context.Context) Value {
 		otherInArgs := make([]Vector, len(e.Args))
 		for i, e := range e.Args {
 			if i != matrixArgIndex {
-				otherArgs[i] = ev.eval(e).(Matrix)
+				otherArgs[i] = ev.eval(e, ctx).(Matrix)
 				otherInArgs[i] = Vector{Sample{}}
 				inArgs[i] = otherInArgs[i]
 			}
@@ -1088,11 +1088,11 @@ func (ev *evaluator) eval(expr Expr, spanContext... context.Context) Value {
 
 	case *ParenExpr:
 		span.SetTag("type", "*ParenExpr")
-		return ev.eval(e.Expr)
+		return ev.eval(e.Expr, ctx)
 
 	case *UnaryExpr:
 		span.SetTag("type", "*UnaryExpr")
-		mat := ev.eval(e.Expr).(Matrix)
+		mat := ev.eval(e.Expr, ctx).(Matrix)
 		if e.Op == ItemSUB {
 			for i := range mat {
 				mat[i].Metric = dropMetricName(mat[i].Metric)
@@ -1110,44 +1110,44 @@ func (ev *evaluator) eval(expr Expr, spanContext... context.Context) Value {
 		span.SetTag("type", "*BinaryExpr")
 		switch lt, rt := e.LHS.Type(), e.RHS.Type(); {
 		case lt == ValueTypeScalar && rt == ValueTypeScalar:
-			return ev.rangeEval(nil, func(v []Value, enh *EvalNodeHelper) Vector {
+			return ev.rangeEval(ctx, func(v []Value, enh *EvalNodeHelper) Vector {
 				val := scalarBinop(e.Op, v[0].(Vector)[0].Point.V, v[1].(Vector)[0].Point.V)
 				return append(enh.out, Sample{Point: Point{V: val}})
 			}, e.LHS, e.RHS)
 		case lt == ValueTypeVector && rt == ValueTypeVector:
 			switch e.Op {
 			case ItemLAND:
-				return ev.rangeEval(nil, func(v []Value, enh *EvalNodeHelper) Vector {
+				return ev.rangeEval(ctx, func(v []Value, enh *EvalNodeHelper) Vector {
 					return ev.VectorAnd(v[0].(Vector), v[1].(Vector), e.VectorMatching, enh)
 				}, e.LHS, e.RHS)
 			case ItemLOR:
-				return ev.rangeEval(nil, func(v []Value, enh *EvalNodeHelper) Vector {
+				return ev.rangeEval(ctx, func(v []Value, enh *EvalNodeHelper) Vector {
 					return ev.VectorOr(v[0].(Vector), v[1].(Vector), e.VectorMatching, enh)
 				}, e.LHS, e.RHS)
 			case ItemLUnless:
-				return ev.rangeEval(nil, func(v []Value, enh *EvalNodeHelper) Vector {
+				return ev.rangeEval(ctx, func(v []Value, enh *EvalNodeHelper) Vector {
 					return ev.VectorUnless(v[0].(Vector), v[1].(Vector), e.VectorMatching, enh)
 				}, e.LHS, e.RHS)
 			default:
-				return ev.rangeEval(nil, func(v []Value, enh *EvalNodeHelper) Vector {
+				return ev.rangeEval(ctx, func(v []Value, enh *EvalNodeHelper) Vector {
 					return ev.VectorBinop(e.Op, v[0].(Vector), v[1].(Vector), e.VectorMatching, e.ReturnBool, enh)
 				}, e.LHS, e.RHS)
 			}
 
 		case lt == ValueTypeVector && rt == ValueTypeScalar:
-			return ev.rangeEval(nil, func(v []Value, enh *EvalNodeHelper) Vector {
+			return ev.rangeEval(ctx, func(v []Value, enh *EvalNodeHelper) Vector {
 				return ev.VectorscalarBinop(e.Op, v[0].(Vector), Scalar{V: v[1].(Vector)[0].Point.V}, false, e.ReturnBool, enh)
 			}, e.LHS, e.RHS)
 
 		case lt == ValueTypeScalar && rt == ValueTypeVector:
-			return ev.rangeEval(nil, func(v []Value, enh *EvalNodeHelper) Vector {
+			return ev.rangeEval(ctx, func(v []Value, enh *EvalNodeHelper) Vector {
 				return ev.VectorscalarBinop(e.Op, v[1].(Vector), Scalar{V: v[0].(Vector)[0].Point.V}, true, e.ReturnBool, enh)
 			}, e.LHS, e.RHS)
 		}
 
 	case *NumberLiteral:
 		span.SetTag("type", "*NumberLiteral")
-		return ev.rangeEval(nil, func(v []Value, enh *EvalNodeHelper) Vector {
+		return ev.rangeEval(ctx, func(v []Value, enh *EvalNodeHelper) Vector {
 			return append(enh.out, Sample{Point: Point{V: e.Val}})
 		})
 
@@ -1218,7 +1218,7 @@ func (ev *evaluator) eval(expr Expr, spanContext... context.Context) Value {
 			newEv.startTimestamp += newEv.interval
 		}
 
-		res := newEv.eval(e.Expr)
+		res := newEv.eval(e.Expr, ctx)
 		ev.currentSamples = newEv.currentSamples
 		return res
 	}
