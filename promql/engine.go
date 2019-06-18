@@ -1016,7 +1016,7 @@ func (ev *evaluator) eval(expr Expr, spanContext... context.Context) Value {
 		}
 
 		sel := e.Args[matrixArgIndex].(*MatrixSelector)
-		checkForSeriesSetExpansion(ev.ctx, sel, nil)
+		checkForSeriesSetExpansion(ev.ctx, sel, ctx)
 		mat := make(Matrix, 0, len(sel.series)) // Output matrix.
 		offset := durationMilliseconds(sel.Offset)
 		selRange := durationMilliseconds(sel.Range)
@@ -1030,6 +1030,7 @@ func (ev *evaluator) eval(expr Expr, spanContext... context.Context) Value {
 		inArgs[matrixArgIndex] = inMatrix
 		enh := &EvalNodeHelper{out: make(Vector, 0, 1)}
 		// Process all the calls for one time series at a time.
+		sp, _ := opentracing.StartSpanFromContext(ctx, "process_all_series")
 		it := storage.NewBuffer(selRange)
 		for i, s := range sel.series {
 			points = points[:0]
@@ -1079,6 +1080,7 @@ func (ev *evaluator) eval(expr Expr, spanContext... context.Context) Value {
 				}
 			}
 		}
+		sp.SetTag("series_count", len(sel.series))
 		if mat.ContainsSameLabelset() {
 			ev.errorf("vector cannot contain metrics with the same labelset")
 		}
