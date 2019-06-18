@@ -1081,6 +1081,7 @@ func (ev *evaluator) eval(expr Expr, spanContext... context.Context) Value {
 			}
 		}
 		sp.SetTag("series_count", len(sel.series))
+		sp.Finish()
 		if mat.ContainsSameLabelset() {
 			ev.errorf("vector cannot contain metrics with the same labelset")
 		}
