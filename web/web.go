@@ -72,6 +72,7 @@ import (
 
 	//jaeger "github.com/uber/jaeger-client-go"
 	jaeger_config "github.com/uber/jaeger-client-go/config"
+	jaeger_log "github.com/uber/jaeger-client-go/log"
 	//jaeger_prometheus "github.com/uber/jaeger-lib/metrics/prometheus"
 	//jaeger "github.com/uber/jaeger-client-go"
 	//jaeger_config "github.com/uber/jaeger-client-go/config"
@@ -483,7 +484,7 @@ func (h *Handler) Run(ctx context.Context) error {
 	errlog := stdlog.New(log.NewStdlibAdapter(level.Error(h.logger)), "", 0)
 
 	cfg, _ := jaeger_config.FromEnv()
-	tracer, _, err := cfg.NewTracer()
+	tracer, _, err := cfg.NewTracer(jaeger_config.Logger(jaeger_log.NullLogger))
 	opentracing.SetGlobalTracer(tracer)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, errors.Wrapf(err, "tracing failed"))
